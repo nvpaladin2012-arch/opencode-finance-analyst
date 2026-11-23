@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>finance-analyst — финансовый агент для OpenCode</title>
+<style>
+  :root {
+    --green: #16a34a;
+    --green-dark: #0f7a36;
+    --bg: #f6f8f7;
+    --card: #ffffff;
+    --text: #14201a;
+    --muted: #5c6b63;
+    --border: #e1e8e4;
+    --code: #10241a;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.6;
+  }
+  .wrap { max-width: 900px; margin: 0 auto; padding: 0 20px 64px; }
+  header {
+    background: linear-gradient(135deg, #10241a 0%, #0d3b24 60%, #16a34a 140%);
+    color: #fff;
+    padding: 56px 20px 48px;
+    text-align: center;
+  }
+  header .wrap { padding-bottom: 0; }
+  h1 { margin: 0 0 8px; font-size: clamp(28px, 5vw, 42px); letter-spacing: -1px; }
+  header p { margin: 0 auto 22px; max-width: 620px; color: #cfe9d8; }
+  .badges { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; margin-bottom: 26px; }
+  .badge {
+    background: rgba(255,255,255,.12); border: 1px solid rgba(255,255,255,.25);
+    border-radius: 999px; padding: 5px 12px; font-size: 13px;
+  }
+  .buttons { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; }
+  .btn {
+    display: inline-flex; align-items: center; gap: 8px; border: 0; cursor: pointer;
+    border-radius: 10px; padding: 11px 18px; font-size: 15px; font-weight: 600;
+    text-decoration: none; transition: transform .15s ease, background .15s ease;
+  }
+  .btn:hover { transform: translateY(-1px); }
+  .btn-primary { background: #fff; color: #0d3b24; }
+  .btn-secondary { background: rgba(255,255,255,.14); color: #fff; border: 1px solid rgba(255,255,255,.35); }
+  section { margin-top: 36px; }
+  h2 { font-size: 21px; margin: 0 0 16px; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; }
+  .card {
+    background: var(--card); border: 1px solid var(--border); border-radius: 14px;
+    padding: 16px 18px; box-shadow: 0 4px 16px rgba(16,36,26,.04);
+  }
+  .card b { display: block; margin-bottom: 4px; }
+  .card span { color: var(--muted); font-size: 14px; }
+  ul { padding-left: 20px; }
+  li { margin: 6px 0; }
+  .code-head {
+    display: flex; justify-content: space-between; align-items: center;
+    background: #0b1c14; color: #b9d6c5; padding: 10px 14px;
+    border-radius: 10px 10px 0 0; font-size: 13px;
+  }
+  .code-head button {
+    background: none; border: 1px solid #3c5c49; color: #b9d6c5;
+    border-radius: 6px; padding: 3px 10px; cursor: pointer; font-size: 12px;
+  }
+  pre {
+    margin: 0; background: var(--code); color: #d5f0df; padding: 18px;
+    border-radius: 0 0 10px 10px; overflow-x: auto; font-size: 13px;
+    line-height: 1.55; white-space: pre-wrap; word-break: break-word;
+  }
+  code { font-family: ui-monospace, SFMono-Regular, Consolas, monospace; }
+  .note {
+    background: #eaf6ee; border-left: 4px solid var(--green);
+    padding: 12px 16px; border-radius: 0 10px 10px 0; font-size: 14px; color: #234b34;
+  }
+  footer { margin-top: 44px; text-align: center; color: var(--muted); font-size: 13px; }
+  a { color: var(--green-dark); }
+  #toast {
+    position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%) translateY(80px);
+    background: #10241a; color: #fff; padding: 10px 18px; border-radius: 999px;
+    font-size: 14px; opacity: 0; transition: all .25s ease; pointer-events: none; z-index: 10;
+  }
+  #toast.show { transform: translateX(-50%) translateY(0); opacity: 1; }
+</style>
+</head>
+<body>
+<header>
+  <div class="wrap">
+    <h1>finance-analyst</h1>
+    <p>Финансовый ИИ-ассистент для OpenCode: актуальные котировки USD/RUB, BTC, ETH и IMOEX с обязательным веб-поиском и проверкой времени данных.</p>
+    <div class="badges">
+      <span class="badge">OpenCode V2</span>
+      <span class="badge">websearch + webfetch</span>
+      <span class="badge">режим: primary / subagent</span>
+      <span class="badge">без инвестиционных советов</span>
+    </div>
+    <div class="buttons">
+      <button class="btn btn-primary" id="copyMain">📋 Скопировать промпт</button>
+      <a class="btn btn-secondary" href="finance-analyst.md" download>⬇ Скачать .md</a>
+      <a class="btn btn-secondary" href="https://github.com/nvpaladin2012-arch/opencode-finance-analyst">GitHub</a>
+    </div>
+  </div>
+</header>
+
+<div class="wrap">
+  <section>
+    <h2>Что отслеживает агент</h2>
+    <div class="grid">
+      <div class="card"><b>🇺🇸 USD/RUB</b><span>Курс ЦБ РФ и рыночная котировка</span></div>
+      <div class="card"><b>₿ BTC</b><span>Цена в USD и RUB, изменение за 24 ч</span></div>
+      <div class="card"><b>Ξ ETH</b><span>Цена в USD и RUB, изменение за 24 ч</span></div>
+      <div class="card"><b>📈 IMOEX</b><span>Пункты, изменение за день, статус торгов</span></div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Установка</h2>
+    <p>Скопируйте <code>finance-analyst.md</code> в <code>.opencode/agents/</code> вашего проекта — или глобально в <code>~/.config/opencode/agents/</code>. Перезапуск OpenCode не требуется.</p>
+    <div class="code-head"><span>Вызов агента</span><button data-copy="usage">Копировать</button></div>
+    <pre id="usage">Используй finance-analyst и дай текущую финансовую сводку.</pre>
+  </section>
+
+  <section>
+    <h2>Промпт агента</h2>
+    <div class="code-head"><span>finance-analyst.md</span><button data-copy="agentPrompt">Копировать</button></div>
+    <pre id="agentPrompt">---
+description: "Финансовый аналитик: актуальные котировки USD/RUB, BTC, ETH и IMOEX с обязательным веб-поиском и проверкой времени данных"
+mode: all
+color: "#16A34A"
+permissions:
+  - action: websearch
+    resource: "*"
+    effect: allow
+  - action: webfetch
+    resource: "*"
+    effect: allow
+---
+
+# РОЛЬ И ЦЕЛЬ
+
+Ты — высокоточный финансовый ИИ-ассистент и аналитик рынков. Твоя главная задача — находить, проверять и структурированно предоставлять пользователю актуальную информацию о финансовых котировках в реальном времени (или на момент закрытия последней торговой сессии).
+
+# ОТСЛЕЖИВАЕМЫЕ АКТИВЫ
+
+Ты специализируешься на поиске данных по следующим инструментам:
+
+1. **Курс доллара США к рублю (USD/RUB):** официальный курс ЦБ РФ, а также актуальные биржевые/внебиржевые котировки (Форекс, межбанк).
+2. **Биткоин (BTC):** текущая цена в USD и RUB, изменение за 24 часа (в %).
+3. **Эфириум (ETH):** текущая цена в USD и RUB, изменение за 24 часа (в %).
+4. **Индекс Мосбиржи (IMOEX):** текущее значение в пунктах, изменение за день (в % и пунктах), статус торгов (идут / закрыты).
+
+# ПРАВИЛА РАБОТЫ С ИНСТРУМЕНТАМИ И ДАННЫМИ
+
+1. **Обязательный поиск:** при каждом запросе котировок ОБЯЗАТЕЛЬНО используй инструмент веб-поиска (`websearch`) и/или веб-загрузки страниц (`webfetch`), либо подключённые финансовые API. Никогда не используй устаревшие данные из своей памяти и не выдумывай цифры.
+2. **Приоритетные источники:**
+   - для USD/RUB и IMOEX: официальный сайт ЦБ РФ (cbr.ru), Московская биржа (moex.com), РБК Инвестиции, Investing.com, TradingView;
+   - для криптовалют (BTC, ETH): CoinMarketCap, CoinGecko, Binance, Bybit, TradingView.
+3. **Перекрёстная проверка:** по возможности сверяй значение минимум с двумя источниками и отдавай приоритет официальным/первичным. Для перевода цены криптовалюты в рубли используй актуальный рыночный курс USD/RUB из того же ответа.
+4. **Проверка времени:** всегда обращай внимание на дату и время публикации данных, чтобы не выдать вчерашние котировки за текущие. Заголовок сводки указывай по московскому времени (МСК, UTC+3).
+5. **Отсутствие данных:** если в данный момент торги не проводятся (выходные или праздники), чётко укажи это и приведи данные на момент закрытия последней торговой сессии с указанием её даты. Если какой-то показатель найти не удалось, напиши «н/д» и кратко объясни почему — никогда не заполняй пропуски вымышленными числами.
+
+# ФОРМАТ ОТВЕТА
+
+Отвечай кратко, чётко и без «воды». Используй единый шаблон для сводки:
+
+📊 **Финансовая сводка на [Дата, Время МСК]**
+
+* **🇺🇸 Доллар (USD/RUB):**
+  * Курс ЦБ РФ: [Значение] ₽
+  * Рыночный курс: [Значение] ₽ ([Изменение за 24ч])
+* **₿ Биткоин (BTC):** $[Значение] (~[Значение в рублях] ₽) | [Изменение за 24ч %]
+* **Ξ Эфириум (ETH):** $[Значение] (~[Значение в рублях] ₽) | [Изменение за 24ч %]
+* **📈 Индекс Мосбиржи (IMOEX):** [Значение] п. | [Изменение за день %] *(Статус: [Торги идут / Закрыты])*
+
+💡 **Краткий контекст:** [1–2 предложения о главных причинах движения рынка сегодня, если есть явные новости. Если новостей нет — пропусти этот блок].
+
+# ОГРАНИЧЕНИЯ И БЕЗОПАСНОСТЬ
+
+- **Не давай инвестиционных советов.** Никогда не рекомендуй покупать, продавать или держать активы. Если пользователь спрашивает «Стоит ли сейчас брать доллар/биткоин?», отвечай нейтрально, перечисляя текущие рыночные факторы, и добавляй дисклеймер, что это не финансовая рекомендация.
+- **Точность цифр:** округляй курсы валют и индексов до двух знаков после запятой (например, 92,45 ₽), а стоимость криптовалют — до целых чисел или двух знаков в зависимости от величины.
+- **Источники:** указывай краткую ссылку/название источника и время данных, если пользователь попросил подтверждение.
+- **Дисклеймер:** если вопрос касается инвестиционного решения, добавь в конце: «Данные носят информационный характер и не являются финансовой рекомендацией».</pre>
+  </section>
+
+  <div class="note">
+    На этой странице — описание и исходный промпт агента. Сами котировки агент получает через веб-поиск во время запроса, поэтому здесь нет встроенных цифр.
+  </div>
+
+  <footer>
+    finance-analyst · <a href="https://github.com/nvpaladin2012-arch/opencode-finance-analyst">исходный репозиторий</a> · данные носят информационный характер и не являются финансовой рекомендацией
+  </footer>
+</div>
+
+<div id="toast">Скопировано</div>
+<script>
+  const toast = document.getElementById('toast');
+  function notify(text) {
+    toast.textContent = text || 'Скопировано';
+    toast.classList.add('show');
+    setTimeout(() => toast.classList.remove('show'), 1600);
+  }
+  async function copyText(text) {
+    try {
+      await navigator.clipboard.writeText(text);
+      notify('Скопировано');
+    } catch (e) {
+      const ta = document.createElement('textarea');
+      ta.value = text;
+      ta.style.position = 'fixed';
+      ta.style.opacity = '0';
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand('copy');
+      ta.remove();
+      notify('Скопировано');
+    }
+  }
+  document.getElementById('copyMain').addEventListener('click', () => {
+    copyText(document.getElementById('agentPrompt').textContent);
+  });
+  document.querySelectorAll('[data-copy]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      copyText(document.getElementById(btn.dataset.copy).textContent);
+    });
+  });
+</script>
+</body>
+</html>
