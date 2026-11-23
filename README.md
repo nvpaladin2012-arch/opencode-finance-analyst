@@ -1,5 +1,7 @@
 # finance-analyst — финансовый ИИ-агент для OpenCode
 
+🌐 **Страница агента в браузере:** https://nvpaladin2012-arch.github.io/opencode-finance-analyst/
+
 Агент OpenCode (V2), который по запросу собирает и структурирует актуальные котировки:
 
 - 🇺🇸 **USD/RUB** — официальный курс ЦБ РФ и рыночная котировка;
