@@ -132,6 +132,18 @@
   </section>
 
   <section>
+    <h2>Пороги оповещений</h2>
+    <p>Письма приходят на <b>nvpaladin2012@gmail.com</b> при каждом ежедневном запуске задания в 12:00 Тюмени:</p>
+    <div class="grid">
+      <div class="card"><b> USD/RUB ≤ 76,77 ₽</b><span>Рыночный курс, при недоступности — курс ЦБ РФ</span></div>
+      <div class="card"><b> BTC &lt; 60 000 USD</b><span>Цена биткоина в долларах</span></div>
+      <div class="card"><b> ETH &lt; 1 600 USD</b><span>Цена эфириума в долларах</span></div>
+      <div class="card"><b> IMOEX &lt; 2 000 п.</b><span>Индекс Московской биржи</span></div>
+    </div>
+    <p class="muted" style="margin:10px 0 0">Одно письмо на каждое пересечение порога; повтор — после возвращения выше порога.</p>
+  </section>
+
+  <section>
     <h2>Установка</h2>
     <p>Скопируйте <code>finance-analyst.md</code> в <code>.opencode/agents/</code> вашего проекта — или глобально в <code>~/.config/opencode/agents/</code>. Перезапуск OpenCode не требуется.</p>
     <div class="code-head"><span>Вызов агента</span><button data-copy="usage">Копировать</button></div>

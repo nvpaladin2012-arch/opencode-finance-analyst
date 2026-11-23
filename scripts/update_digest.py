@@ -32,6 +32,16 @@ SOURCES = {
     "binance_eth": "https://api.binance.com/api/v3/ticker/24hr?symbol=ETHUSDT",
 }
 
+ALERT_EMAIL = "nvpaladin2012@gmail.com"
+ALERT_ENDPOINT = f"https://formsubmit.co/ajax/{ALERT_EMAIL}"
+ALERT_STATE = ROOT / "alert_state.json"
+THRESHOLDS = {
+    "usd_below": "USD/RUB ≤ 76,77 ₽",
+    "btc_below": "BTC < 60 000 USD",
+    "eth_below": "ETH < 1 600 USD",
+    "imoex_below": "IMOEX < 2 000 п.",
+}
+
 
 def fetch_json(url: str, timeout: int = 20) -> dict:
     req = urllib.request.Request(url, headers=UA)
@@ -176,12 +186,115 @@ def build_digest(data: dict) -> str:
         f"*(Статус: {imoex.get('status', 'н/д')})*",
         "",
         "Источники: ЦБ РФ, Московская биржа, " + data.get("crypto", {}).get("source", "н/д") + ".",
+        *([f"⚠️ Сработавшие пороги: {'; '.join(data['alerts'])}."] if data.get("alerts") else []),
         "Данные носят информационный характер и не являются финансовой рекомендацией.",
         "",
     ])
 
 
+def alert_conditions(data: dict) -> dict[str, tuple[bool, str]]:
+    usd = data["usd"].get("market", {}).get("value")
+    if usd is None:
+        usd = data["usd"].get("cbr", {}).get("value")
+    btc = data["crypto"].get("btc", {}).get("usd")
+    eth = data["crypto"].get("eth", {}).get("usd")
+    index = data["imoex"].get("value")
+    return {
+        "usd_below": (
+            usd is not None and usd <= 76.77,
+            f"USD/RUB = {dec(usd)} ₽ (порог ≤ 76,77 ₽)" if usd is not None else "USD/RUB: н/д",
+        ),
+        "btc_below": (
+            btc is not None and btc < 60000,
+            f"BTC = ${dec(btc, 0)} (порог < 60 000 USD)" if btc is not None else "BTC: н/д",
+        ),
+        "eth_below": (
+            eth is not None and eth < 1600,
+            f"ETH = ${dec(eth, 0)} (порог < 1 600 USD)" if eth is not None else "ETH: н/д",
+        ),
+        "imoex_below": (
+            index is not None and index < 2000,
+            f"IMOEX = {dec(index)} п. (порог < 2 000 п.)" if index is not None else "IMOEX: н/д",
+        ),
+    }
+
+
+def load_alert_state() -> dict:
+    try:
+        return json.loads(ALERT_STATE.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return {}
+
+
+def save_alert_state(state: dict) -> None:
+    ALERT_STATE.write_text(json.dumps(state, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+
+
+def send_email(subject: str, message: str) -> bool:
+    payload = json.dumps({"subject": subject, "message": message}, ensure_ascii=False).encode("utf-8")
+    headers = {
+        **UA,
+        "Content-Type": "application/json",
+        "Accept": "application/json",
+        "Origin": "https://nvpaladin2012-arch.github.io",
+        "Referer": "https://nvpaladin2012-arch.github.io/",
+    }
+    try:
+        request = urllib.request.Request(ALERT_ENDPOINT, data=payload, headers=headers, method="POST")
+        with urllib.request.urlopen(request, timeout=25) as response:
+            body = response.read().decode("utf-8", errors="replace")
+            print(f"MAIL {response.status}: {body[:200]}")
+            try:
+                return bool(json.loads(body).get("success"))
+            except ValueError:
+                return 200 <= response.status < 300
+    except Exception as error:
+        print(f"WARN mail: {error}", file=sys.stderr)
+        return False
+
+
+def process_alerts(data: dict) -> None:
+    """Пишет один раз при первом пересечении порога; повтор — после возврата выше порога."""
+    conditions = alert_conditions(data)
+    state = load_alert_state()
+    to_send = [text for key, (triggered, text) in conditions.items()
+               if triggered and not state.get(key, {}).get("active")]
+    sent = False
+    if to_send:
+        subject = "⚠️ finance-analyst: сработали пороги котировок"
+        body = (
+            "Сработали настроенные пороги:\n\n"
+            + "\n".join(f"• {line}" for line in to_send)
+            + "\n\n" + build_digest(data)
+        )
+        sent = send_email(subject, body)
+
+    new_state = {}
+    for key, (triggered, text) in conditions.items():
+        previous = state.get(key, {})
+        active = triggered
+        if triggered and not previous.get("active") and not sent:
+            active = False  # отправить повторно при следующем запуске
+        entry = {"active": active, "last_value": text, "checked_at": data["generated_at"]}
+        if active and not previous.get("active"):
+            entry["sent_at"] = data["generated_at"]
+        new_state[key] = entry
+    save_alert_state(new_state)
+
+    data["alerts"] = [text for triggered, text in conditions.values() if triggered]
+    data["alert_email_sent"] = sent if to_send else None
+
+
 def main() -> int:
+    if "--test-alert" in sys.argv:
+        ok = send_email(
+            "finance-analyst: тест оповещений",
+            "Это тестовое письмо. Если вы его видите — доставка оповещений настроена.\n"
+            "Пороги: USD/RUB ≤ 76,77 ₽, BTC < 60 000 USD, ETH < 1 600 USD, IMOEX < 2 000 п.",
+        )
+        print("Тестовое письмо отправлено" if ok else "Не удалось отправить тестовое письмо")
+        return 0 if ok else 1
+
     now = datetime.now(TYUMEN)
     data = {
         "generated_at": now.isoformat(timespec="seconds"),
@@ -221,6 +334,7 @@ def main() -> int:
     ]
     data["notes"] = [f"Не удалось получить: {', '.join(missing)}. В сводке указано «н/д»."] if missing else []
     data["ok"] = not missing
+    process_alerts(data)
 
     (ROOT / "data.json").write_text(
         json.dumps(data, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
