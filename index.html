@@ -85,6 +85,14 @@
     font-size: 14px; opacity: 0; transition: all .25s ease; pointer-events: none; z-index: 10;
   }
   #toast.show { transform: translateX(-50%) translateY(0); opacity: 1; }
+  .stamp { font-size: 13px; font-weight: 400; color: var(--muted); }
+  #liveContent { background: var(--card); border: 1px solid var(--border); border-radius: 14px; padding: 6px 20px; box-shadow: 0 4px 16px rgba(16,36,26,.04); }
+  #liveContent .line { padding: 12px 0; border-bottom: 1px solid var(--border); }
+  #liveContent .line:last-child { border-bottom: 0; }
+  #liveContent .label { font-weight: 600; }
+  #liveContent .muted { color: var(--muted); font-size: 13px; }
+  #liveContent .big { font-size: 18px; font-weight: 700; }
+  .loading { color: var(--muted); }
 </style>
 </head>
 <body>
@@ -107,6 +115,12 @@
 </header>
 
 <div class="wrap">
+  <section id="live">
+    <h2>Последняя сводка <span class="stamp" id="liveTime"></span></h2>
+    <div id="liveContent" class="loading">Загрузка данных…</div>
+    <p class="muted" style="margin:10px 0 0">Данные обновляются автоматически каждый день в 12:00 по Тюмени (07:00 UTC) через GitHub Actions. Страница сама подтягивает свежий файл при открытии.</p>
+  </section>
+
   <section>
     <h2>Что отслеживает агент</h2>
     <div class="grid">
@@ -219,6 +233,41 @@ permissions:
       notify('Скопировано');
     }
   }
+  const fmt = (v, d = 2) => v == null ? 'н/д' : new Intl.NumberFormat('ru-RU', { minimumFractionDigits: d, maximumFractionDigits: d }).format(v);
+  const pct = v => v == null ? 'н/д' : (v > 0 ? '+' : '') + fmt(v, 2) + '%';
+  const cryptoLine = (item) => {
+    if (!item || item.usd == null) return '<span class="muted">н/д</span>';
+    const du = Math.abs(item.usd) >= 1000 ? 0 : 2;
+    const dr = item.rub == null ? 2 : (Math.abs(item.rub) >= 1000 ? 0 : 2);
+    return `<span class="big">$${fmt(item.usd, du)}</span> <span class="muted">(~${item.rub == null ? 'н/д' : fmt(item.rub, dr)} ₽) | ${pct(item.change_24h)}</span>`;
+  };
+  async function loadDigest() {
+    const box = document.getElementById('liveContent');
+    try {
+      const res = await fetch('data.json?ts=' + Date.now(), { cache: 'no-store' });
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      const d = await res.json();
+      const usd = d.usd || {}, cbr = usd.cbr || {}, market = usd.market || {}, imoex = d.imoex || {};
+      document.getElementById('liveTime').textContent = '· ' + (d.generated_at_display || '');
+      box.classList.remove('loading');
+      box.innerHTML = `
+        <div class="line"><span class="label">🇺🇸 Доллар (USD/RUB)</span><br>
+          <span class="muted">Курс ЦБ РФ: <b>${fmt(cbr.value)} ₽</b> · данные от ${cbr.date || 'н/д'}</span><br>
+          <span>Рыночный курс: <b>${fmt(market.value)} ₽</b> <span class="muted">(${pct(market.change_24h)})</span></span></div>
+        <div class="line"><span class="label">₿ Биткоин (BTC)</span><br>${cryptoLine(d.crypto && d.crypto.btc)}</div>
+        <div class="line"><span class="label">Ξ Эфириум (ETH)</span><br>${cryptoLine(d.crypto && d.crypto.eth)}</div>
+        <div class="line"><span class="label">📈 Индекс Мосбиржи (IMOEX)</span><br>
+          <span><b>${fmt(imoex.value)} п.</b> <span class="muted">| ${pct(imoex.change_pct)} (${fmt(imoex.change_points)} п.) · Статус: ${imoex.status || 'н/д'}</span></span></div>
+        ${(d.notes && d.notes.length) ? `<div class="line muted">${d.notes.join(' ')}</div>` : ''}
+      `;
+    } catch (e) {
+      box.classList.remove('loading');
+      box.innerHTML = '<p>Сводка пока недоступна. Она появится после первого успешного запуска задания в GitHub Actions.</p>';
+    }
+  }
+  loadDigest();
+  setInterval(loadDigest, 5 * 60 * 1000);
+
   document.getElementById('copyMain').addEventListener('click', () => {
     copyText(document.getElementById('agentPrompt').textContent);
   });
