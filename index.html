@@ -118,7 +118,7 @@
   <section id="live">
     <h2>Последняя сводка <span class="stamp" id="liveTime"></span></h2>
     <div id="liveContent" class="loading">Загрузка данных…</div>
-    <p class="muted" style="margin:10px 0 0">Данные обновляются автоматически каждый день в 12:00 по Тюмени (07:00 UTC) через GitHub Actions. Страница сама подтягивает свежий файл при открытии.</p>
+    <p class="muted" style="margin:10px 0 0">Котировки загружаются онлайн при открытии страницы и обновляются каждые 5 минут прямо в браузере (ЦБ РФ, Московская биржа, CoinGecko). Ежедневный снимок формируется в 12:00 по Тюмени (07:00 UTC).</p>
   </section>
 
   <section>
@@ -241,28 +241,95 @@ permissions:
     const dr = item.rub == null ? 2 : (Math.abs(item.rub) >= 1000 ? 0 : 2);
     return `<span class="big">$${fmt(item.usd, du)}</span> <span class="muted">(~${item.rub == null ? 'н/д' : fmt(item.rub, dr)} ₽) | ${pct(item.change_24h)}</span>`;
   };
-  async function loadDigest() {
+  const API = {
+    imoex: 'https://iss.moex.com/iss/engines/stock/markets/index/securities/IMOEX.json?iss.meta=off',
+    usd: 'https://iss.moex.com/iss/engines/currency/markets/selt/securities/USD000UTSTOM.json?iss.meta=off',
+    cbr: 'https://www.cbr-xml-daily.ru/daily_json.js',
+    crypto: 'https://api.coingecko.com/api/v3/simple/price?ids=bitcoin,ethereum&vs_currencies=usd,rub&include_24hr_change=true',
+  };
+  const getJSON = async (url) => {
+    const response = await fetch(url, { cache: 'no-store' });
+    if (!response.ok) throw new Error('HTTP ' + response.status);
+    return response.json();
+  };
+  const table = (payload, block) => {
+    const section = payload[block] || {};
+    return (section.data || []).map(row => Object.fromEntries((section.columns || []).map((col, i) => [col, row[i]])));
+  };
+  const r2 = value => value == null ? null : Math.round(Number(value) * 100) / 100;
+  const tyumenTime = () => new Intl.DateTimeFormat('ru-RU', {
+    timeZone: 'Asia/Yekaterinburg', day: '2-digit', month: '2-digit', year: 'numeric',
+    hour: '2-digit', minute: '2-digit',
+  }).format(new Date()) + ' Тюмень (UTC+5)';
+  const moscowParts = () => {
+    const parts = new Intl.DateTimeFormat('en-GB', {
+      timeZone: 'Europe/Moscow', weekday: 'short', year: 'numeric', month: '2-digit',
+      day: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false,
+    }).formatToParts(new Date()).reduce((acc, p) => (acc[p.type] = p.value, acc), {});
+    return {
+      weekday: parts.weekday,
+      date: `${parts.year}-${parts.month}-${parts.day}`,
+      minutes: Number(parts.hour) * 60 + Number(parts.minute),
+    };
+  };
+  async function fetchLive() {
+    const [indexData, usdData, cbrData, coinData] = await Promise.all([
+      getJSON(API.imoex), getJSON(API.usd), getJSON(API.cbr), getJSON(API.crypto),
+    ]);
+    const idx = table(indexData, 'marketdata')[0] || {};
+    const fxRows = table(usdData, 'marketdata').filter(row => row.LAST != null);
+    const fx = fxRows.find(row => row.BOARDID === 'CETS') || fxRows[0] || {};
+    const m = moscowParts();
+    const trading = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'].includes(m.weekday)
+      && m.minutes >= 7 * 60 && m.minutes <= 23 * 60 + 50
+      && idx.TRADEDATE === m.date;
+    return {
+      usd: {
+        cbr: { value: r2(cbrData.Valute.USD.Value / cbrData.Valute.USD.Nominal), date: (cbrData.Date || '').slice(0, 10) },
+        market: { value: r2(fx.LAST), change_24h: r2(fx.LASTCHANGEPRCNT) },
+      },
+      btc: { usd: coinData.bitcoin.usd, rub: coinData.bitcoin.rub, change_24h: r2(coinData.bitcoin.usd_24h_change) },
+      eth: { usd: coinData.ethereum.usd, rub: coinData.ethereum.rub, change_24h: r2(coinData.ethereum.usd_24h_change) },
+      imoex: {
+        value: r2(idx.CURRENTVALUE), change_pct: r2(idx.LASTCHANGEPRC),
+        change_points: r2(idx.LASTCHANGE), status: trading ? 'Торги идут' : 'Закрыты',
+        trade_date: idx.TRADEDATE,
+      },
+      generated_at_display: tyumenTime(),
+    };
+  }
+  function render(d, live) {
     const box = document.getElementById('liveContent');
+    const usd = d.usd || {}, cbr = usd.cbr || {}, market = usd.market || {}, imoex = d.imoex || {};
+    const btc = (d.crypto && d.crypto.btc) || d.btc || {};
+    const eth = (d.crypto && d.crypto.eth) || d.eth || {};
+    document.getElementById('liveTime').textContent = '· ' + (d.generated_at_display || '') + (live ? ' · онлайн' : ' · снимок');
+    box.classList.remove('loading');
+    box.innerHTML = `
+      <div class="line"><span class="label">🇺🇸 Доллар (USD/RUB)</span><br>
+        <span class="muted">Курс ЦБ РФ: <b>${fmt(cbr.value)} ₽</b> · данные от ${cbr.date || 'н/д'}</span><br>
+        <span>Рыночный курс: <b>${fmt(market.value)} ₽</b> <span class="muted">(${pct(market.change_24h)})</span></span></div>
+      <div class="line"><span class="label">₿ Биткоин (BTC)</span><br>${cryptoLine(btc)}</div>
+      <div class="line"><span class="label">Ξ Эфириум (ETH)</span><br>${cryptoLine(eth)}</div>
+      <div class="line"><span class="label">📈 Индекс Мосбиржи (IMOEX)</span><br>
+        <span><b>${fmt(imoex.value)} п.</b> <span class="muted">| ${pct(imoex.change_pct)} (${fmt(imoex.change_points)} п.) · Статус: ${imoex.status || 'н/д'}</span></span></div>
+      ${(d.notes && d.notes.length) ? `<div class="line muted">${d.notes.join(' ')}</div>` : ''}
+    `;
+  }
+  async function loadDigest() {
     try {
-      const res = await fetch('data.json?ts=' + Date.now(), { cache: 'no-store' });
-      if (!res.ok) throw new Error('HTTP ' + res.status);
-      const d = await res.json();
-      const usd = d.usd || {}, cbr = usd.cbr || {}, market = usd.market || {}, imoex = d.imoex || {};
-      document.getElementById('liveTime').textContent = '· ' + (d.generated_at_display || '');
-      box.classList.remove('loading');
-      box.innerHTML = `
-        <div class="line"><span class="label">🇺🇸 Доллар (USD/RUB)</span><br>
-          <span class="muted">Курс ЦБ РФ: <b>${fmt(cbr.value)} ₽</b> · данные от ${cbr.date || 'н/д'}</span><br>
-          <span>Рыночный курс: <b>${fmt(market.value)} ₽</b> <span class="muted">(${pct(market.change_24h)})</span></span></div>
-        <div class="line"><span class="label">₿ Биткоин (BTC)</span><br>${cryptoLine(d.crypto && d.crypto.btc)}</div>
-        <div class="line"><span class="label">Ξ Эфириум (ETH)</span><br>${cryptoLine(d.crypto && d.crypto.eth)}</div>
-        <div class="line"><span class="label">📈 Индекс Мосбиржи (IMOEX)</span><br>
-          <span><b>${fmt(imoex.value)} п.</b> <span class="muted">| ${pct(imoex.change_pct)} (${fmt(imoex.change_points)} п.) · Статус: ${imoex.status || 'н/д'}</span></span></div>
-        ${(d.notes && d.notes.length) ? `<div class="line muted">${d.notes.join(' ')}</div>` : ''}
-      `;
-    } catch (e) {
-      box.classList.remove('loading');
-      box.innerHTML = '<p>Сводка пока недоступна. Она появится после первого успешного запуска задания в GitHub Actions.</p>';
+      const live = await fetchLive();
+      render(live, true);
+    } catch (error) {
+      try {
+        const response = await fetch('data.json?ts=' + Date.now(), { cache: 'no-store' });
+        if (!response.ok) throw new Error('HTTP ' + response.status);
+        render(await response.json(), false);
+      } catch (fallbackError) {
+        const box = document.getElementById('liveContent');
+        box.classList.remove('loading');
+        box.innerHTML = '<p>Не удалось получить котировки. Попробуйте обновить страницу позже.</p>';
+      }
     }
   }
   loadDigest();
