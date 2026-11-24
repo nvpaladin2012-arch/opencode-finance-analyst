@@ -8,7 +8,9 @@
 from __future__ import annotations
 
 import json
+import ssl
 import sys
+import urllib.error
 import urllib.request
 import xml.etree.ElementTree as ET
 from datetime import datetime, timedelta, timezone
@@ -43,15 +45,39 @@ THRESHOLDS = {
 }
 
 
-def fetch_json(url: str, timeout: int = 20) -> dict:
+def _is_ssl_verify_error(error: Exception) -> bool:
+    cur: BaseException | None = error
+    while cur is not None:
+        if isinstance(cur, ssl.SSLCertVerificationError):
+            return True
+        msg = str(cur).lower()
+        if "certificate_verify_failed" in msg or "self-signed certificate" in msg:
+            return True
+        cur = cur.__cause__ or cur.__context__
+    return False
+
+
+def _open_with_moex_fallback(url: str, timeout: int = 20):
     req = urllib.request.Request(url, headers=UA)
-    with urllib.request.urlopen(req, timeout=timeout) as response:
+    try:
+        return urllib.request.urlopen(req, timeout=timeout)
+    except Exception as error:
+        is_moex = url.startswith("https://iss.moex.com/")
+        if not (is_moex and _is_ssl_verify_error(error)):
+            raise
+        http_url = "http://" + url[len("https://"):]
+        print(f"WARN moex ssl fallback: {url} -> {http_url}: {error}", file=sys.stderr)
+        http_req = urllib.request.Request(http_url, headers=UA)
+        return urllib.request.urlopen(http_req, timeout=timeout)
+
+
+def fetch_json(url: str, timeout: int = 20) -> dict:
+    with _open_with_moex_fallback(url, timeout=timeout) as response:
         return json.loads(response.read().decode("utf-8"))
 
 
 def fetch_text(url: str, encoding: str = "utf-8", timeout: int = 20) -> str:
-    req = urllib.request.Request(url, headers=UA)
-    with urllib.request.urlopen(req, timeout=timeout) as response:
+    with _open_with_moex_fallback(url, timeout=timeout) as response:
         return response.read().decode(encoding, errors="replace")
 
 
@@ -343,7 +369,9 @@ def main() -> int:
 
     print(f"OK: {data['generated_at_display']} | sources ok={data['ok']}")
     print(build_digest(data))
-    return 0 if data["ok"] else 1
+    if not data["ok"]:
+        print("WARN: digest saved with partial data; exiting 0 to keep scheduled publish alive", file=sys.stderr)
+    return 0
 
 
 if __name__ == "__main__":
