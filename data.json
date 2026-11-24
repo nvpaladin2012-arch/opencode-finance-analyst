@@ -1,41 +1,43 @@
 {
-  "generated_at": "2026-11-23T12:50:55+05:00",
-  "generated_at_display": "23.11.2026, 12:50 Тюмень (UTC+5)",
+  "generated_at": "2026-11-24T15:08:30+05:00",
+  "generated_at_display": "24.11.2026, 15:08 Тюмень (UTC+5)",
   "schedule": "Каждый день в 12:00 по Тюмени (07:00 UTC)",
   "usd": {
     "cbr": {
-      "value": 82.19,
-      "date": "21.11.2026"
+      "value": 82.15,
+      "date": "24.11.2026"
     },
     "market": {
-      "value": 82.14,
-      "change_24h": 0.02,
-      "updatetime": "10:35:56"
+      "value": 82.39,
+      "change_24h": 0.05,
+      "updatetime": "12:53:29"
     }
   },
   "imoex": {
-    "value": 2340.41,
-    "change_pct": -0.55,
-    "change_points": -12.84,
+    "value": 2372.66,
+    "change_pct": -0.38,
+    "change_points": -8.96,
     "status": "Торги идут",
-    "trade_date": "2026-11-23",
-    "updatetime": "10:50:56"
+    "trade_date": "2026-11-24",
+    "updatetime": "13:08:33"
   },
   "crypto": {
     "btc": {
-      "usd": 61413,
-      "rub": 5035799,
-      "change_24h": 4.01
+      "usd": 59960,
+      "rub": 4904309,
+      "change_24h": -2.24
     },
     "eth": {
-      "usd": 1720,
-      "rub": 141010,
-      "change_24h": 3.3
+      "usd": 1685,
+      "rub": 137793,
+      "change_24h": -2.14
     },
     "source": "CoinGecko"
   },
   "notes": [],
   "ok": true,
-  "alerts": [],
-  "alert_email_sent": null
+  "alerts": [
+    "BTC = $59960 (порог < 60 000 USD)"
+  ],
+  "alert_email_sent": true
 }
