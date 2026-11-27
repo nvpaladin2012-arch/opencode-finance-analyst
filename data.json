@@ -1,36 +1,36 @@
 {
-  "generated_at": "2026-11-26T13:30:56+05:00",
-  "generated_at_display": "26.11.2026, 13:30 Тюмень (UTC+5)",
+  "generated_at": "2026-11-27T13:29:00+05:00",
+  "generated_at_display": "27.11.2026, 13:29 Тюмень (UTC+5)",
   "schedule": "Каждый день в 12:00 по Тюмени (07:00 UTC)",
   "usd": {
     "cbr": {
-      "value": 82.31,
-      "date": "26.11.2026"
+      "value": 82.13,
+      "date": "27.11.2026"
     },
     "market": {
-      "value": 82.85,
-      "change_24h": 0.09,
-      "updatetime": "11:15:57"
+      "value": 82.6,
+      "change_24h": 0.02,
+      "updatetime": "11:14:00"
     }
   },
   "imoex": {
-    "value": 2361.58,
-    "change_pct": 0.32,
-    "change_points": 7.64,
+    "value": 2343.76,
+    "change_pct": 0.31,
+    "change_points": 7.22,
     "status": "Торги идут",
-    "trade_date": "2026-11-26",
-    "updatetime": "11:30:58"
+    "trade_date": "2026-11-27",
+    "updatetime": "11:29:04"
   },
   "crypto": {
     "btc": {
-      "usd": 60604,
-      "rub": 4987613,
-      "change_24h": 2.83
+      "usd": 61888,
+      "rub": 5095011,
+      "change_24h": 2.1
     },
     "eth": {
-      "usd": 1687,
-      "rub": 138827,
-      "change_24h": 2.68
+      "usd": 1736,
+      "rub": 142891,
+      "change_24h": 2.9
     },
     "source": "CoinGecko"
   },
