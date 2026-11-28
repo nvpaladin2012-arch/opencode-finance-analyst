@@ -1,22 +1,23 @@
 {
   "usd_below": {
     "active": false,
-    "last_value": "USD/RUB = 82,60 ₽ (порог ≤ 76,77 ₽)",
-    "checked_at": "2026-11-27T13:29:00+05:00"
+    "last_value": "USD/RUB = 82,58 ₽ (порог ≤ 76,77 ₽)",
+    "checked_at": "2026-11-28T13:14:05+05:00"
   },
   "btc_below": {
-    "active": false,
-    "last_value": "BTC = $61888 (порог < 60 000 USD)",
-    "checked_at": "2026-11-27T13:29:00+05:00"
+    "active": true,
+    "last_value": "BTC = $59722 (порог < 60 000 USD)",
+    "checked_at": "2026-11-28T13:14:05+05:00",
+    "sent_at": "2026-11-28T13:14:05+05:00"
   },
   "eth_below": {
     "active": false,
-    "last_value": "ETH = $1736 (порог < 1 600 USD)",
-    "checked_at": "2026-11-27T13:29:00+05:00"
+    "last_value": "ETH = $1656 (порог < 1 600 USD)",
+    "checked_at": "2026-11-28T13:14:05+05:00"
   },
   "imoex_below": {
     "active": false,
-    "last_value": "IMOEX = 2343,76 п. (порог < 2 000 п.)",
-    "checked_at": "2026-11-27T13:29:00+05:00"
+    "last_value": "IMOEX = 2364,93 п. (порог < 2 000 п.)",
+    "checked_at": "2026-11-28T13:14:05+05:00"
   }
 }
